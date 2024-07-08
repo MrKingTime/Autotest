@@ -1,0 +1,32 @@
+import sys
+
+sys.path.append("d:\\project\\office\\interface-auto")
+
+from tools.request import Request
+from api.login import account_login
+import settings
+
+
+token = account_login(username=settings.ZHUGUAN_USER, password=settings.DEFAULT_PASSWORD)
+
+url = "/testingStandard/level/options?level=3&parentCode=14.1&itemId=271&needCount=True"
+
+res = Request.request(url=url, token=token, method="get")
+print(res)
+
+# for i in range(50):
+#     url = "/rp/point/save"
+#     body = {
+#         "individualCode": "22",
+#         "itemId": 264,
+#         "subIndividualCode": "22.3",
+#         "testingResult": "1,1,1,1",
+#         "testingPicture": "",
+#         "pointLocation": "123",
+#         "pointFloor": "23",
+#         "testingSum": 1,
+#         "remarks": "",
+#     }
+#     res = Request.request(url=url, token=token, method="post", body=body)
+#     print(f"===========第{i+1}次")
+#     print(res)

@@ -1,0 +1,163 @@
+import requests
+import settings
+import json
+from tools.logger import get_logger
+
+idempotence_url = [
+    "/meta/applyProject",
+    "/ba/plan/add",
+    "/ba/plan/edit",
+    "/ba/plan/editBatch",
+    "/ba/plan/savePort",
+    "/ba/exportBaPlan",
+    "/ba/importBaPlan",
+    "/ba/addBaNodeCustom",
+    "/ba/group/structure/save",
+    "/ba/group/addDevice",
+    "/ba/group/groupLockControl",
+    "/ba/group/groupLockPanel",
+    "/ba/group/groupCalenderSetting",
+    "/device/detail/export",
+    "/device/detail/import",
+    "/device/add",
+    "/device/update",
+    "/device/updatePortList",
+    "/device/addPort",
+    "/device/updatePort",
+    "/device/controlByFunction",
+    "/device/controlByFunctions",
+    "/device/controlBatch",
+    "/deviceSystem/sysSave",
+    "/deviceSystem/subSysSave",
+    "/entrusting-party/save",
+    "/sign/add",
+    "/mr/contract/save",
+    "/mr/report/generateReport",
+    "/mr/report/saveInfo",
+    "/mr/report/reportStamp",
+    "/mr/report/uploadReport",
+    "/mr/report/uploadProvince",
+    "/sa/building/save",
+    "/sa/instrument/save",
+    "/sa/member/save",
+    "/sa/member/addBatch",
+    "/sa/saveNotLimit",
+    "/sa/save",
+    "/rp/building/save",
+    "/rp/company/save",
+    "/rp/deviceSystem/importInfo",
+    "/rp/deviceSystem/save",
+    "/rp/point/save",
+    "/rp/saveNotLimit",
+    "/rp/save",
+    "/crWoInfo/add",
+    "/woInfo/savePlanDraft",
+    "/woInfo/add",
+    "/woPackage/savePackage",
+    "/woPackage/importSysAndStandard",
+    "/period/save",
+    "/period/addMetaSetting",
+    "/account/save",
+    "/account/info",
+    "/account/pwd",
+    "/account/updateAvatar",
+    "/account/self",
+    "/account/self/pwd",
+    "/account/page/export",
+    "/account/personal/cache",
+    "/dict/save",
+    "/dict/addMetaSetting",
+    "/role/save",
+    "/role/permission/batch",
+    "/company/save",
+    "/company/page/export",
+    "/project/save",
+    "/project/page/export",
+    "/crWoInfo/checkOrder",
+    "/crWoInfo/submitAudit",
+    "/crWoInfo/sendTask",
+    "/crWoInfo/remove",
+    "/crWoInfo/edit",
+    "/crWoInfo/exportSingleReport",
+    "/crWoInfo/exportMonthReport",
+    "/crWoInfo/export/{id}",
+    "/woInfo/editPlan",
+    "/woInfo/editOrder",
+    "/woInfo/removeOrder",
+    "/woInfo/removePlan",
+    "/woInfo/sendTask",
+    "/woInfo/checkOrder",
+    "/woInfo/exportPlan",
+    "/woInfo/app/deleteDevice",
+    "/woInfo/app/commitDeviceConf",
+    "/woInfo/app/addWoDevice",
+    "/woInfo/removeWoDeviceConf",
+    "/woInfo/app/commitOrder",
+    "/mr/report/saveInfoAndReport",
+    "/sa/rollBackItem",
+    "/sa/updateProjectStandard",
+    "/sa/result/save",
+    "/sa/state/updateStatusToApproval",
+    "/sa/highRiskProblem/update",
+    "/sa/leaderCheck",
+    "/sa/auditProject",
+    "/sa/refusal",
+    "/sa/state/upload",
+    "/sa/export",
+    "/sa/reportStamp",
+    "/sa/uploadProvince",
+    "/sa/againReport",
+    "/rp/againReport",
+    "/rp/uploadProvince",
+    "/rp/reportStamp",
+    "/rp/item/uploadReport",
+    "/rp/result",
+    "/rp/completeTest",
+    "/rp/auditProject",
+]
+
+
+class Request:
+    success_code = [200]
+    _logger = get_logger()
+    idempotence = None  # 幂等性校验token，但无需存储
+
+    @classmethod
+    def request(cls, url, method="GET", token=None, body=None, headers=None, params=None, full_data=False, *args, **kwargs):
+
+        if headers is None:
+            headers = {
+                "X-Token": token,
+                "Content-Type": "application/json",
+                "project-all": "1",
+                "project-id": "",
+            }
+        if cls.idempotence is None and url in idempotence_url:
+            res = Request.request("/account/token/getIdempotenceToken", method="GET", headers=headers)
+            cls._logger.debug(f"idempotence：{res}")
+            headers.update({"X-Idempotence": res})
+
+        cls._logger.debug(f"接口请求，url：{url}，method：{method}，headers：{headers}，body：{json.dumps(body)}")
+
+        res = requests.request(method=method, params=params, url=settings.BASE_URL + url, headers=headers, json=body, *args, **kwargs)
+
+        if res.status_code != 200:
+            cls._logger.error("请求失败，状态码：{}".format(res.status_code))
+            cls._logger.error(res.text)
+            cls._logger.error(url)
+            return None
+
+        try:
+            json_data = res.json()
+            if json_data is not None and json_data["code"] in cls.success_code:
+                cls._logger.debug(f"接口响应，url：{url}，method：{method}，headers：{headers}，body：{json.dumps(json_data)}")
+                if full_data:
+                    return json_data
+                return json_data["data"] if json_data["data"] != None else cls._logger.info(json_data["msg"])
+
+            cls._logger.info(f"接口响应，url：{url}，method：{method}，headers：{headers}，MSG{json_data['msg']}")
+
+        except Exception as e:
+            cls._logger.error(url)
+            cls._logger.error(e)
+            return None
